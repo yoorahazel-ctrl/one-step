@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One Step: one task at a time</title>
+<style>
+:root{--bg:#eef3f6;--card:#fff;--ink:#14212b;--mute:#4a5b68;--acc:#0f6b6b;--onacc:#fff;--line:#b9c8d2;--fs:1.25rem;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root:not([data-hc]){--bg:#101a20;--card:#18262e;--ink:#e8f0f4;--mute:#a9bac5;--acc:#5cc8c0;--onacc:#06201f;--line:#34505d}}
+:root[data-hc]{--bg:#000;--card:#000;--ink:#fff;--mute:#fff;--acc:#ffe600;--onacc:#000;--line:#fff}
+:root[data-big]{--fs:1.6rem}
+:root[data-read] body{font-family:Verdana,Tahoma,sans-serif;letter-spacing:.04em;word-spacing:.12em;line-height:1.8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:var(--fs)/1.55 "Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+main{max-width:40rem;margin:0 auto;padding:1.25rem 1rem 3rem}
+h1{font-size:1.1em;margin:0;font-weight:700}
+header{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1.5rem}
+.opts{display:flex;gap:.5rem;flex-wrap:wrap;font-size:.7em}
+.opts label{display:flex;align-items:center;gap:.35rem;cursor:pointer}
+.opts input{width:1.1rem;height:1.1rem;accent-color:var(--acc)}
+.card{background:var(--card);border:2px solid var(--line);border-radius:1rem;padding:1.5rem}
+.now{font-size:.75em;color:var(--mute);margin:0 0 .5rem}
+.task{font-size:1.7em;line-height:1.3;font-weight:700;margin:0 0 1.5rem;overflow-wrap:anywhere;outline:none}
+.row{display:flex;gap:.75rem;flex-wrap:wrap}
+button{font:inherit;font-size:.85em;min-height:3rem;padding:.6rem 1.1rem;border-radius:.75rem;border:2px solid var(--acc);background:transparent;color:var(--ink);cursor:pointer}
+button.main{background:var(--acc);color:var(--onacc);font-weight:700;flex:1 1 10rem}
+button:hover{filter:brightness(1.08)}
+:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+textarea,input[type=text]{width:100%;font:inherit;font-size:.85em;padding:.75rem;border-radius:.75rem;border:2px solid var(--line);background:var(--card);color:var(--ink)}
+textarea{min-height:12rem;margin:.75rem 0}
+p.help{color:var(--mute);font-size:.8em;margin:.25rem 0 0}
+.meta{margin-top:1.25rem;font-size:.75em;color:var(--mute);min-height:1.5em}
+.timer{font-size:1.4em;font-variant-numeric:tabular-nums;font-weight:700}
+.sm{margin-top:1rem}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:no-preference){.card{transition:border-color .2s}}
+</style>
+</head>
+<body>
+<main>
+<header>
+ <h1>One Step</h1>
+ <div class="opts" role="group" aria-label="Display settings">
+  <label><input type="checkbox" id="big"> Larger text</label>
+  <label><input type="checkbox" id="hc"> High contrast</label>
+  <label><input type="checkbox" id="read"> Easy-read spacing</label>
+ </div>
+</header>
+
+<section id="intake" hidden>
+ <div class="card">
+  <h2 style="margin-top:0;font-size:1.2em">Empty your head here</h2>
+  <label for="dump" class="help" style="display:block">Paste or type everything on your list, one item per line. Order does not matter. You will only see one item at a time.</label>
+  <textarea id="dump" placeholder="Reply to Sam&#10;Physics worksheet&#10;Book dentist&#10;..."></textarea>
+  <div class="row">
+   <button class="main" id="start">Show me my first step</button>
+   <button id="example" type="button">Try an example list</button>
+  </div>
+ </div>
+</section>
+
+<section id="focus" hidden>
+ <div class="card">
+  <p class="now">Your one thing right now</p>
+  <h2 class="task" id="task" tabindex="-1"></h2>
+  <div class="row">
+   <button class="main" id="done">Done (D)</button>
+   <button id="later">Not now (N)</button>
+   <button id="small">Make it smaller (S)</button>
+  </div>
+  <form id="smallform" hidden class="sm">
+   <label for="tiny" class="help" style="display:block">What is the tiniest first piece? Example: "Open the document".</label>
+   <div class="row" style="margin-top:.5rem">
+    <input type="text" id="tiny" style="flex:1 1 12rem">
+    <button class="main" type="submit" style="flex:0 0 auto">Add as next step</button>
+   </div>
+  </form>
+  <div class="sm row" style="align-items:center">
+   <button id="tbtn">Try 5 focused minutes</button>
+   <span class="timer" id="time" hidden>5:00</span>
+  </div>
+ </div>
+ <p class="meta" id="meta"></p>
+ <div class="opts"><label><input type="checkbox" id="showleft"> Show how many are left</label>
+ <button id="reset" style="min-height:2.5rem;font-size:.7em">Start a new list</button></div>
+</section>
+
+<section id="finish" hidden>
+ <div class="card">
+  <h2 style="margin-top:0">That is everything.</h2>
+  <p id="count"></p>
+  <button class="main" id="again">Start a new list</button>
+ </div>
+</section>
+
+<div id="status" class="help" role="status" aria-live="polite" style="margin-top:1rem"></div>
+</main>
+<script>
+(function(){
+var $=function(s){return document.querySelector(s)};
+var S={tasks:[],done:0,showLeft:false,opts:{}},timer=null,KEY="onestep-v1";
+try{var raw=localStorage.getItem(KEY);if(raw){S=Object.assign(S,JSON.parse(raw))}}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function say(t){$("#status").textContent=t}
+var praise=["Nice. One thing less.","Done. That counts.","Good. Take a breath if you want one.","Finished. You are moving.","That one is behind you now."];
+function applyOpts(){
+ var r=document.documentElement;
+ ["big","hc","read"].forEach(function(k){
+  $("#"+k).checked=!!S.opts[k];
+  if(S.opts[k])r.setAttribute("data-"+k,"");else r.removeAttribute("data-"+k);
+ });
+}
+["big","hc","read"].forEach(function(k){$("#"+k).addEventListener("change",function(e){S.opts[k]=e.target.checked;applyOpts();save()})});
+function stopTimer(){if(timer){clearInterval(timer);timer=null}$("#time").hidden=true;$("#tbtn").textContent="Try 5 focused minutes"}
+function show(id){["intake","focus","finish"].forEach(function(s){$("#"+s).hidden=s!==id})}
+function render(focusIt){
+ stopTimer();$("#smallform").hidden=true;
+ if(S.tasks.length){
+  show("focus");$("#task").textContent=S.tasks[0];
+  $("#showleft").checked=!!S.showLeft;
+  var n=S.tasks.length-1;
+  $("#meta").textContent="Finished so far: "+S.done+(S.showLeft?". Waiting after this: "+n+".":".");
+  if(focusIt)$("#task").focus();
+ }else if(S.done>0){
+  show("finish");$("#count").textContent="You finished "+S.done+" "+(S.done===1?"thing":"things")+". Rest if you can.";
+ }else{show("intake")}
+ save();
+}
+$("#start").onclick=function(){
+ var lines=$("#dump").value.split("\n").map(function(l){return l.replace(/^\s*([-*\u2022]|\d+[.)])\s*/,"").trim()}).filter(Boolean);
+ if(!lines.length){say("Type at least one item first, one per line.");$("#dump").focus();return}
+ S.tasks=lines;S.done=0;say("Your list is saved. Showing the first step.");render(true);
+};
+$("#example").onclick=function(){
+ $("#dump").value=["Reply to group project chat","Finish physics worksheet","Email teacher about extension","Book dentist","Wash water bottle","Read chapter 4","Plan weekend study slots","Print permission form","Call grandma","Clean desk","Submit scholarship form","Pack bag for tomorrow","Revise 10 vocabulary words","Fix resume typo","Pay phone bill","Reply to Sam","Sort photos for yearbook","Practice 20 SAT questions","Water the plant","Write to-do list for next week"].join("\n");
+ $("#dump").focus();
+};
+$("#done").onclick=function(){S.tasks.shift();S.done++;say(praise[S.done%praise.length]);render(true)};
+$("#later").onclick=function(){
+ if(S.tasks.length<2){say("This is the only one left. You can do it, or make it smaller.");return}
+ S.tasks.push(S.tasks.shift());say("Moved to later. Here is a different step.");render(true);
+};
+$("#small").onclick=function(){$("#smallform").hidden=false;$("#tiny").focus()};
+$("#smallform").onsubmit=function(e){
+ e.preventDefault();var v=$("#tiny").value.trim();if(!v)return;
+ S.tasks.unshift(v);$("#tiny").value="";say("Added. Just do this small piece.");render(true);
+};
+$("#tbtn").onclick=function(){
+ if(timer){stopTimer();say("Timer stopped.");return}
+ var left=300;$("#time").hidden=false;$("#tbtn").textContent="Stop timer";say("Five minutes started. Only this one thing.");
+ function tick(){var m=Math.floor(left/60),s=left%60;$("#time").textContent=m+":"+(s<10?"0":"")+s}
+ tick();
+ timer=setInterval(function(){left--;tick();if(left<=0){stopTimer();say("Time is up. Mark it done, or keep going if you are in flow.")}},1000);
+};
+$("#showleft").onchange=function(e){S.showLeft=e.target.checked;render(false)};
+function restart(){S.tasks=[];S.done=0;$("#dump").value="";say("");render(false);$("#dump").focus()}
+$("#reset").onclick=restart;$("#again").onclick=restart;
+document.addEventListener("keydown",function(e){
+ var t=e.target.tagName;if(t==="INPUT"||t==="TEXTAREA"||e.ctrlKey||e.metaKey||e.altKey||$("#focus").hidden)return;
+ var k=e.key.toLowerCase();
+ if(k==="d")$("#done").click();else if(k==="n")$("#later").click();else if(k==="s"){e.preventDefault();$("#small").click()}
+});
+applyOpts();render(false);
+})();
+</script>
+</body>
+</html>
